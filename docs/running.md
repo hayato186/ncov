@@ -30,11 +30,15 @@ Here we assume you have two data sources which you wish to analyse together:
 > As the global dataset grows, subsampling becomes important.
 We will write guidance for subsampling in a future page, but you can investigate the `Snakefile_Regions` to see how we perform subsampling for our regional builds.
 
-#### Global data
+#### Obtaining global data through GISAID
 
 For the nextstrain.org analyses we use data obtained through [GISAID](https//gisaid.org).
-Please see there for how you may obtain those genomic data for your own analysis as the terms of data sharing prevent us making the sequence data publicly available.
-Included in this repository is [a curated list of metadata](../data/metadata.tsv) associated with those sequences.
+
+Once you have logged into GISAID's EpiCoV site, click "partner downloads" to download the (compressed) metadata & sequences.
+These should be decompressed and saved as `./data/global_metadata.tsv` and `./data/global_sequences.fasta`, respectively, for the purposes of this tutorial.
+
+> Please note that `./data/metadata.tsv` is no longer included as part of this repo and should be downloaded from GISAID.
+
 
 #### Your own data
 
