@@ -105,9 +105,8 @@ regions:
       exclude: "--exclude-where country!=Switzerland"
     europe:
       group_by: "country year month"
-      seq_per_group: 10
-      include: "--include-where region=Europe"
-      exclude: "--exclude-where country=Switzerland"
+      seq_per_group: 30
+      exclude: "--exclude-where country=Switzerland region!=Europe"
     global:
       group_by: "country year month"
       seq_per_group: 2
