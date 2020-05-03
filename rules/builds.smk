@@ -133,14 +133,15 @@ rule mask:
 
 def get_priorities(w):
     if "priorities" in config["regions"][w.region][w.subsample] \
-        and config["regions"][w.region][w.subsample]=="proximity":
-        return REGION_PATH + f"proximity_{w.subsample}_{config['regions'][w.region][w.subsample]['focus']}.fasta"
+        and config["regions"][w.region][w.subsample]["priorities"]["type"]=="proximity":
+        return f"results/region/{w.region}/proximity_{config['regions'][w.region][w.subsample]['priorities']['focus']}.tsv"
     else:
         return config["files"]["include"]
 
 def get_priority_argument(w):
-    if "priorities" in config["regions"][w.region][w.subsample]:
-        return "--priorities " + get_priorities(w)
+    if "priorities" in config["regions"][w.region][w.subsample]\
+        and config["regions"][w.region][w.subsample]["priorities"]["type"]=="proximity":
+            return "--priority " + get_priorities(w)
     else:
         ""
 
@@ -188,7 +189,7 @@ rule proximity_score:
         metadata = rules.download.output.metadata,
         focal_alignment = REGION_PATH + "sample-{focus}.fasta"
     output:
-        priorities = REGION_PATH + "proximity_{context}_{focus}.tsv"
+        priorities = REGION_PATH + "proximity_{focus}.tsv"
     resources:
         mem_mb = 4000
     conda: "../envs/nextstrain.yaml"
