@@ -131,17 +131,18 @@ rule mask:
             --output {output.alignment}
         """
 
-def _get_sequences_per_group_by_wildcards(wildcards):
-    if wildcards.region == "global":
-        return config["subsample_focus"]["seq_per_group_global"]
+def get_priorities(w):
+    if "priorities" in config["regions"][w.region][w.subsample] \
+        and config["regions"][w.region][w.subsample]=="proximity":
+        return REGION_PATH + f"proximity_{w.subsample}_{config['regions'][w.region][w.subsample]['focus']}.fasta"
     else:
-        return config["subsample_focus"]["seq_per_group_regional"]
+        return config["files"]["include"]
 
-def _get_exclude_argument_by_wildcards(wildcards):
-    if wildcards.region == "global":
-        return ""
+def get_priority_argument(w):
+    if "priorities" in config["regions"][w.region][w.subsample]:
+        return "--priorities " + get_priorities(w)
     else:
-        return f"--exclude-where region!={wildcards.region}"
+        ""
 
 rule subsample:
     message:
@@ -151,14 +152,16 @@ rule subsample:
     input:
         sequences = rules.mask.output.alignment,
         metadata = rules.download.output.metadata,
-        include = config["files"]["include"]
+        include = config["files"]["include"],
+        priorities = get_priorities
     output:
         sequences = REGION_PATH + "sample-{subsample}.fasta"
     params:
         group_by = lambda w: config["regions"][w.region][w.subsample]["group_by"],
         sequences_per_group = lambda w: config["regions"][w.region][w.subsample]["seq_per_group"],
         exclude_argument = lambda w: config["regions"][w.region][w.subsample].get("exclude", ""),
-        include_argument = lambda w: config["regions"][w.region][w.subsample].get("include", "")
+        include_argument = lambda w: config["regions"][w.region][w.subsample].get("include", ""),
+        priority_argument = get_priority_argument
     conda: "../envs/nextstrain.yaml"
     shell:
         """
@@ -168,33 +171,34 @@ rule subsample:
             --include {input.include} \
             {params.exclude_argument} \
             {params.include_argument} \
+            {params.priority_argument} \
             --group-by {params.group_by} \
             --sequences-per-group {params.sequences_per_group} \
             --output {output.sequences} \
         """
 
-# rule make_priorities:
-#     message:
-#         """
-#         determine priority for inclusion in as phylogenetic context by
-#         genetic similiarity to sequences in focal set for region '{wildcards.region}'.
-#         """
-#     input:
-#         alignment = rules.mask.output.alignment,
-#         metadata = rules.download.output.metadata,
-#         focal_alignment = rules.subsample_focus.output.sequences
-#     output:
-#         priorities = REGION_PATH + "subsampling_priorities.tsv"
-#     resources:
-#         mem_mb = 4000
-#     conda: "../envs/nextstrain.yaml"
-#     shell:
-#         """
-#         python3 scripts/priorities.py --alignment {input.alignment} \
-#             --metadata {input.metadata} \
-#             --focal-alignment {input.focal_alignment} \
-#             --output {output.priorities}
-#         """
+rule proximity_score:
+    message:
+        """
+        determine priority for inclusion in as phylogenetic context by
+        genetic similiarity to sequences in focal set for region '{wildcards.region}'.
+        """
+    input:
+        alignment = rules.mask.output.alignment,
+        metadata = rules.download.output.metadata,
+        focal_alignment = REGION_PATH + "sample-{focus}.fasta"
+    output:
+        priorities = REGION_PATH + "proximity_{context}_{focus}.tsv"
+    resources:
+        mem_mb = 4000
+    conda: "../envs/nextstrain.yaml"
+    shell:
+        """
+        python3 scripts/priorities.py --alignment {input.alignment} \
+            --metadata {input.metadata} \
+            --focal-alignment {input.focal_alignment} \
+            --output {output.priorities}
+        """
 
 
 rule subsample_regions:
@@ -265,7 +269,7 @@ rule tree:
         """
 
 def _get_metadata_by_wildcards(wildcards):
-    if wildcards.region == "global":
+    if wildcards.region in ["global", "swiss"]:
         return rules.download.output.metadata
     else:
         return rules.adjust_metadata_regions.output.metadata
