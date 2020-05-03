@@ -3,18 +3,18 @@ from socket import getfqdn
 from getpass import getuser
 from snakemake.utils import validate
 
-configfile: "config/config.yaml"
+#configfile: "config/config.yaml"
 validate(config, schema="schemas/config.schema.yaml")
 
 # For information on how to run 'regions' runs, see rules/regions.smk
 # Regions can be defined as a list or a space-delimited string that is converted
 # to a list.
 if "regions" not in config:
-    REGIONS = ["global"]
-elif isinstance(config["regions"], list):
+    REGIONS ={"global": [{"name": "global", "group_by": "country month year", "seq_per_group": 10}]}
+elif isinstance(config["regions"], dict):
     REGIONS = config["regions"]
 else:
-    REGIONS = config["regions"].split(" ")
+    REGIONS = {}
 
 # Define patterns we expect for wildcards.
 wildcard_constraints:

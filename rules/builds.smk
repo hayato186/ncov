@@ -143,7 +143,7 @@ def _get_exclude_argument_by_wildcards(wildcards):
     else:
         return f"--exclude-where region!={wildcards.region}"
 
-rule subsample_focus:
+rule subsample:
     message:
         """
         Subsample all sequences into a focal set for {wildcards.region} with {params.sequences_per_group} per region
@@ -153,11 +153,12 @@ rule subsample_focus:
         metadata = rules.download.output.metadata,
         include = config["files"]["include"]
     output:
-        sequences = REGION_PATH + "subsample_focus.fasta"
+        sequences = REGION_PATH + "sample-{subsample}.fasta"
     params:
-        group_by = config["subsample_focus"]["group_by"],
-        sequences_per_group = _get_sequences_per_group_by_wildcards,
-        exclude_argument = _get_exclude_argument_by_wildcards
+        group_by = lambda w: config["regions"][w.region][w.subsample]["group_by"],
+        sequences_per_group = lambda w: config["regions"][w.region][w.subsample]["seq_per_group"],
+        exclude_argument = lambda w: config["regions"][w.region][w.subsample].get("exclude", ""),
+        include_argument = lambda w: config["regions"][w.region][w.subsample].get("include", "")
     conda: "../envs/nextstrain.yaml"
     shell:
         """
@@ -166,60 +167,35 @@ rule subsample_focus:
             --metadata {input.metadata} \
             --include {input.include} \
             {params.exclude_argument} \
+            {params.include_argument} \
             --group-by {params.group_by} \
             --sequences-per-group {params.sequences_per_group} \
             --output {output.sequences} \
         """
 
-rule make_priorities:
-    message:
-        """
-        determine priority for inclusion in as phylogenetic context by
-        genetic similiarity to sequences in focal set for region '{wildcards.region}'.
-        """
-    input:
-        alignment = rules.mask.output.alignment,
-        metadata = rules.download.output.metadata,
-        focal_alignment = rules.subsample_focus.output.sequences
-    output:
-        priorities = REGION_PATH + "subsampling_priorities.tsv"
-    resources:
-        mem_mb = 4000
-    conda: "../envs/nextstrain.yaml"
-    shell:
-        """
-        python3 scripts/priorities.py --alignment {input.alignment} \
-            --metadata {input.metadata} \
-            --focal-alignment {input.focal_alignment} \
-            --output {output.priorities}
-        """
+# rule make_priorities:
+#     message:
+#         """
+#         determine priority for inclusion in as phylogenetic context by
+#         genetic similiarity to sequences in focal set for region '{wildcards.region}'.
+#         """
+#     input:
+#         alignment = rules.mask.output.alignment,
+#         metadata = rules.download.output.metadata,
+#         focal_alignment = rules.subsample_focus.output.sequences
+#     output:
+#         priorities = REGION_PATH + "subsampling_priorities.tsv"
+#     resources:
+#         mem_mb = 4000
+#     conda: "../envs/nextstrain.yaml"
+#     shell:
+#         """
+#         python3 scripts/priorities.py --alignment {input.alignment} \
+#             --metadata {input.metadata} \
+#             --focal-alignment {input.focal_alignment} \
+#             --output {output.priorities}
+#         """
 
-rule subsample_context:
-    message:
-        """
-        Subsample the non-focal sequences to provide phylogenetic context for the region '{wildcards.region}' using {params.sequences_per_group} per {params.group_by}.
-        """
-    input:
-        sequences = rules.mask.output.alignment,
-        metadata = rules.download.output.metadata,
-        priorities = rules.make_priorities.output.priorities
-    output:
-        sequences = REGION_PATH + "subsample_context.fasta"
-    params:
-        group_by = config["subsample_context"]["group_by"],
-        sequences_per_group = config["subsample_context"]["sequences_per_group"]
-    conda: "../envs/nextstrain.yaml"
-    shell:
-        """
-        augur filter \
-            --exclude-where region={wildcards.region} \
-            --sequences {input.sequences} \
-            --metadata {input.metadata} \
-            --priority {input.priorities} \
-            --group-by {params.group_by} \
-            --sequences-per-group {params.sequences_per_group} \
-            --output {output.sequences}
-        """
 
 rule subsample_regions:
     message:
@@ -227,8 +203,7 @@ rule subsample_regions:
         Combine and deduplicate FASTAs
         """
     input:
-        rules.subsample_focus.output.sequences,
-        rules.subsample_context.output.sequences
+        lambda w: [REGION_PATH + f"sample-{subsample}.fasta" for subsample in config["regions"][w.region]]
     output:
         alignment = REGION_PATH + "subsampled_alignment.fasta"
     conda: "../envs/nextstrain.yaml"
