@@ -134,8 +134,9 @@ rule mask:
 def get_priorities(w):
     if "priorities" in config["regions"][w.region][w.subsample] \
         and config["regions"][w.region][w.subsample]["priorities"]["type"]=="proximity":
-        return f"results/region/{w.region}/proximity_{config['regions'][w.region][w.subsample]['priorities']['focus']}.tsv"
+        return f"{get_region_path(w)}proximity_{config['regions'][w.region][w.subsample]['priorities']['focus']}.tsv"
     else:
+        # TODO: find a way to make the list of input files depend on config
         return config["files"]["include"]
 
 def get_priority_argument(w):
@@ -391,6 +392,9 @@ def _get_sampling_trait_for_wildcards(wildcards):
     return mapping[wildcards.region] if wildcards.region in mapping else "country"
 
 def _get_exposure_trait_for_wildcards(wildcards):
+    if wildcards.region in config["traits"]:
+        return config["traits"][wildcards.region]
+
     mapping = {"north-america": "country_exposure", "oceania": "country_exposure"} # TODO: switch to "division_exposure"
     return mapping[wildcards.region] if wildcards.region in mapping else "country_exposure"
 

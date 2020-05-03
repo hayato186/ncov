@@ -78,6 +78,7 @@ ancestral:
 
 traits:
   sampling_bias_correction: 2.5
+  swiss: []
 
 # Frequencies settings
 frequencies:
