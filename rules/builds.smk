@@ -392,9 +392,6 @@ def _get_sampling_trait_for_wildcards(wildcards):
     return mapping[wildcards.region] if wildcards.region in mapping else "country"
 
 def _get_exposure_trait_for_wildcards(wildcards):
-    if wildcards.region in config["traits"]:
-        return config["traits"][wildcards.region]
-
     mapping = {"north-america": "country_exposure", "oceania": "country_exposure"} # TODO: switch to "division_exposure"
     return mapping[wildcards.region] if wildcards.region in mapping else "country_exposure"
 
@@ -408,10 +405,10 @@ rule traits:
         tree = rules.refine.output.tree,
         metadata = _get_metadata_by_wildcards
     output:
-        node_data = REGION_PATH + "traits.json",
+        node_data = REGION_PATH + "traits.json"
     params:
-        columns = _get_exposure_trait_for_wildcards,
-        sampling_bias_correction = config["traits"]["sampling_bias_correction"]
+        columns = lambda w: config["traits"][w.region]["columns"],
+        sampling_bias_correction = lambda w: config["traits"][w.region]["sampling_bias_correction"]
     conda: "../envs/nextstrain.yaml"
     shell:
         """
@@ -465,13 +462,13 @@ rule recency:
     input:
         metadata = _get_metadata_by_wildcards
     output:
-        REGION_PATH + "recency.json"
+        node_data = REGION_PATH + "recency.json"
     conda: "../envs/nextstrain.yaml"
     shell:
         """
         python3 scripts/construct-recency-from-submission-date.py \
             --metadata {input.metadata} \
-            --output {output}
+            --output {output.node_data}
         """
 
 rule tip_frequencies:
@@ -511,21 +508,38 @@ def export_title(wildcards):
         region_title = region.replace("-", " ").title()
         return f"Genomic epidemiology of novel coronavirus - {region_title}-focused subsampling"
 
+
+
+def _get_node_data_by_wildcards(wildcards):
+    """Return a list of node data files to include for a given build's wildcards.
+    """
+    # Define inputs shared by all builds.
+    wildcards_dict = dict(wildcards)
+    inputs = [
+        rules.refine.output.node_data,
+        rules.ancestral.output.node_data,
+        rules.translate.output.node_data,
+        rules.clades.output.clade_data,
+        rules.recency.output.node_data
+    ]
+
+    if wildcards.region in config["traits"]:
+        inputs.append(rules.traits.output.node_data)
+
+    # Convert input files from wildcard strings to real file names.
+    inputs = [input_file.format(**wildcards_dict) for input_file in inputs]
+    return inputs
+
 rule export:
     message: "Exporting data files for for auspice"
     input:
         tree = rules.refine.output.tree,
         metadata = _get_metadata_by_wildcards,
-        branch_lengths = rules.refine.output.node_data,
-        nt_muts = rules.ancestral.output.node_data,
-        aa_muts = rules.translate.output.node_data,
-        traits = rules.traits.output.node_data,
+        node_data = _get_node_data_by_wildcards,
         auspice_config = config["files"]["auspice_config"],
         colors = rules.colors.output.colors,
         lat_longs = config["files"]["lat_longs"],
-        description = config["files"]["description"],
-        clades = rules.clades.output.clade_data,
-        recency = rules.recency.output
+        description = config["files"]["description"]
     output:
         auspice_json = REGION_PATH + "ncov_with_accessions.json"
     params:
@@ -536,7 +550,7 @@ rule export:
         augur export v2 \
             --tree {input.tree} \
             --metadata {input.metadata} \
-            --node-data {input.branch_lengths} {input.nt_muts} {input.aa_muts} {input.traits} {input.clades} {input.recency} \
+            --node-data {input.node_data} \
             --auspice-config {input.auspice_config} \
             --colors {input.colors} \
             --lat-longs {input.lat_longs} \

@@ -76,10 +76,6 @@ refine:
 ancestral:
   inference: "joint"
 
-traits:
-  sampling_bias_correction: 2.5
-  swiss: []
-
 # Frequencies settings
 frequencies:
   min_date: 2020.0
@@ -94,6 +90,11 @@ frequencies:
 #
 # Region-specific settings
 #
+traits:
+  global:
+    sampling_bias_correction: 2.5
+    columns: ["country_exposure"]
+
 
 # Regions to build specific builds for using intelligent subsampling.
 regions:
