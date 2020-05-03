@@ -103,12 +103,14 @@ regions:
       exclude: "--exclude-where country!=Switzerland"
     europe:
       group_by: "country year month"
-      seq_per_group: 5
+      seq_per_group: 10
       include: "region=Europe"
       exclude: "--exclude-where country=Switzerland"
     global:
       group_by: "country year month"
       seq_per_group: 2
       exclude: "--exclude-where country=Switzerland"
-      priorities: "proximity"
+      priorities: 
+        type: "proximity"
+        focus: "switzerland"
         
